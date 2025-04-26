@@ -1,73 +1,69 @@
-# Welcome to your Lovable project
 
-## Project info
+# DarijaCode Hub
 
-**URL**: https://lovable.dev/projects/e903c47f-7db4-4be3-8514-fec6fb25f3f3
+An AI-powered platform helping Moroccan developers learn coding in Darija, Arabic, French, and English.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- **Multilingual Support**: Content in Darija, Arabic, French, and English
+- **AI Chatbot**: Ask coding questions in multiple languages
+- **Learning Resources**: AI-generated explanations for coding concepts
+- **Learning Paths**: Personalized learning journeys 
+- **Project Ideas**: AI-suggested coding projects
+- **Community Forum**: Connect with other Moroccan developers
+- **Voice Input**: Speak your questions instead of typing
 
-**Use Lovable**
+## Technologies Used
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e903c47f-7db4-4be3-8514-fec6fb25f3f3) and start prompting.
+- React with TypeScript
+- TailwindCSS for styling
+- Groq API for LLaMA3-70b-chat AI model
+- Whisper API for audio transcription
+- Mermaid.js for flowcharts and diagrams
+- LocalStorage for saving user progress
 
-Changes made via Lovable will be committed automatically to this repo.
+## Setup Instructions
 
-**Use your preferred IDE**
+### Prerequisites
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Node.js (v18 or higher)
+- npm or yarn
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Environment Variables
 
-Follow these steps:
+Create a `.env` file in the root directory with the following variables:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+VITE_GROQ_API_KEY=your_groq_api_key
+VITE_OPENAI_API_KEY=your_openai_api_key_for_whisper
 ```
 
-**Edit a file directly in GitHub**
+### Installation
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. Clone this repository
+2. Install dependencies
+   ```
+   npm install
+   ```
+3. Start the development server
+   ```
+   npm run dev
+   ```
 
-**Use GitHub Codespaces**
+## API Key Setup
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. Get a Groq API key from [Groq](https://console.groq.com/)
+2. Get an OpenAI API key from [OpenAI](https://platform.openai.com/) for Whisper audio transcription
+3. Add both keys to your `.env` file
 
-## What technologies are used for this project?
+## Usage
 
-This project is built with:
+- **Chat**: Ask coding questions in your preferred language
+- **Learning**: Browse AI-generated lessons on various topics
+- **Learning Path**: Get a personalized roadmap based on your goals
+- **Projects**: Explore project ideas with detailed instructions
+- **Community**: Connect with other developers and share experiences
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## License
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/e903c47f-7db4-4be3-8514-fec6fb25f3f3) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+MIT
