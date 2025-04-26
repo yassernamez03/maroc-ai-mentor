@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from "react";
-import { Send, Mic, MicOff, Volume, CircleUser, UserCircle } from "lucide-react";
+import { Send, Mic, MicOff, UserCircle } from "lucide-react";
 
 interface Message {
   id: string;
@@ -19,6 +18,9 @@ const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // Hugging Face token - Normally you would store this in .env but for demo purposes
+  const HF_TOKEN = "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";
 
   const languages = [
     { id: "en", name: "English" },
@@ -166,7 +168,7 @@ const Chat = () => {
       
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        await transcribeAudio(audioBlob);
+        await transcribeAudioWithHuggingFace(audioBlob);
         
         // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
@@ -187,36 +189,40 @@ const Chat = () => {
     }
   };
   
-  const transcribeAudio = async (audioBlob: Blob) => {
+  const transcribeAudioWithHuggingFace = async (audioBlob: Blob) => {
     setIsLoading(true);
     
     try {
-      // Using whisper API in the frontend
+      // Using Hugging Face's ASR API
       const formData = new FormData();
       formData.append("file", audioBlob, "recording.wav");
-      formData.append("model", "whisper-1");
       
-      const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${import.meta.env.VITE_OPENAI_API_KEY || "PLACEHOLDER_API_KEY"}`
-        },
-        body: formData,
-      });
+      // Use a specific ASR model from Hugging Face - openai/whisper-large-v3 is a good choice
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/openai/whisper-large-v3",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${HF_TOKEN}`
+          },
+          body: formData,
+        }
+      );
       
       if (!response.ok) {
         throw new Error(`Transcription API request failed with status ${response.status}`);
       }
       
       const data = await response.json();
+      
       if (data.text) {
         setInput(data.text);
       } else {
         throw new Error("No transcription returned");
       }
     } catch (error) {
-      console.error("Error transcribing audio:", error);
-      alert("Could not transcribe audio. Please check your API key or try typing your message instead.");
+      console.error("Error transcribing audio with Hugging Face:", error);
+      alert("Could not transcribe audio. Please check your Hugging Face API token or try typing your message instead.");
     } finally {
       setIsLoading(false);
     }
@@ -346,7 +352,7 @@ const Chat = () => {
       
       <div className="mt-4 text-xs text-center text-gray-500 dark:text-gray-400">
         <p>
-          Powered by Groq LLaMA3 and OpenAI Whisper. Your API keys are required for full functionality.
+          Powered by Groq LLaMA3 and Hugging Face Whisper. Your API keys are required for full functionality.
         </p>
       </div>
     </div>
