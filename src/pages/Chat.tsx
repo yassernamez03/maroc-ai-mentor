@@ -14,13 +14,9 @@ const Chat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("en");
-  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-
-  // Hugging Face token - Normally you would store this in .env but for demo purposes
-  const HF_TOKEN = "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";
 
   const languages = [
     { id: "en", name: "English" },
@@ -79,7 +75,6 @@ const Chat = () => {
       content: input,
       timestamp: new Date()
     };
-
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -87,7 +82,6 @@ const Chat = () => {
     try {
       // Create system prompt based on selected language
       let systemPrompt = "You are DarijaCode Hub's assistant, helping Moroccan developers learn to code. ";
-      
       switch (selectedLanguage) {
         case "darija":
           systemPrompt += "Please respond in Moroccan Darija using Latin script. Use Moroccan cultural references when explaining coding concepts.";
@@ -126,18 +120,15 @@ const Chat = () => {
       }
 
       const data = await response.json();
-      
       const assistantMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
         content: data.choices[0]?.message?.content || "Sorry, I couldn't process that request.",
         timestamp: new Date()
       };
-
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Error sending message to API:", error);
-      
       // Add error message
       const errorMessage: Message = {
         id: Date.now().toString(),
@@ -145,7 +136,6 @@ const Chat = () => {
         content: "Sorry, there was an error processing your request. Please make sure your API key is set up correctly.",
         timestamp: new Date()
       };
-      
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -156,24 +146,22 @@ const Chat = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
-      
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-      
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
-      
+
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        await transcribeAudioWithHuggingFace(audioBlob);
-        
+        await transcribeAudio(audioBlob);
         // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
       };
-      
+
       mediaRecorder.start();
       setIsRecording(true);
     } catch (error) {
@@ -181,51 +169,107 @@ const Chat = () => {
       alert("Could not access microphone. Please check your permissions.");
     }
   };
-  
+
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
   };
-  
-  const transcribeAudioWithHuggingFace = async (audioBlob: Blob) => {
+
+  const transcribeAudio = async (audioBlob: Blob) => {
     setIsLoading(true);
-    
     try {
-      // Using Hugging Face's ASR API
-      const formData = new FormData();
-      formData.append("file", audioBlob, "recording.wav");
-      
-      // Use a specific ASR model from Hugging Face - openai/whisper-large-v3 is a good choice
-      const response = await fetch(
-        "https://api-inference.huggingface.co/models/openai/whisper-large-v3",
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${HF_TOKEN}`
-          },
-          body: formData,
-        }
-      );
-      
+      // Convert the Blob to base64
+      const base64Audio = await blobToBase64(audioBlob);
+      const base64Data = base64Audio.split(',')[1]; // Remove the data URL prefix
+
+      // Using Replicate's Whisper API
+      const response = await fetch("https://api.replicate.com/v1/predictions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Token ${import.meta.env.VITE_REPLICATE_API_TOKEN || "PLACEHOLDER_API_KEY"}`
+        },
+        body: JSON.stringify({
+          version: "a83d4148199d1a2e21c468c210a513d79dd5bda3e32284a9664f73b9de422fd7", // Whisper large-v2 model
+          input: {
+            audio: base64Data,
+            model_name: "large-v2",
+            transcription: "plain text", // Can be "plain text" or "srt" or "vtt"
+            translate: false,
+            language: selectedLanguage === "darija" ? "ar" : selectedLanguage, // Map darija to Arabic for Whisper
+            temperature: 0,
+            patience: 1,
+            suppress_tokens: "-1",
+            condition_on_previous_text: false,
+            prompt: ""
+          }
+        }),
+      });
+
       if (!response.ok) {
         throw new Error(`Transcription API request failed with status ${response.status}`);
       }
+
+      const prediction = await response.json();
       
-      const data = await response.json();
+      // Poll the prediction status until it completes
+      const result = await pollPredictionResult(prediction.id);
       
-      if (data.text) {
-        setInput(data.text);
+      if (result && result.output) {
+        setInput(result.output);
       } else {
         throw new Error("No transcription returned");
       }
     } catch (error) {
-      console.error("Error transcribing audio with Hugging Face:", error);
-      alert("Could not transcribe audio. Please check your Hugging Face API token or try typing your message instead.");
+      console.error("Error transcribing audio:", error);
+      alert("Could not transcribe audio. Please check your API key or try typing your message instead.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to poll prediction status
+  const pollPredictionResult = async (predictionId: string) => {
+    const maxAttempts = 30;
+    const delay = 1000;
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Token ${import.meta.env.VITE_REPLICATE_API_TOKEN || "PLACEHOLDER_API_KEY"}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error polling prediction: ${response.status}`);
+      }
+      
+      const prediction = await response.json();
+      
+      if (prediction.status === "succeeded") {
+        return prediction;
+      } else if (prediction.status === "failed") {
+        throw new Error(`Prediction failed: ${prediction.error}`);
+      }
+      
+      // Wait before polling again
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    throw new Error("Prediction timed out");
+  };
+
+  // Helper function to convert Blob to base64
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   };
 
   const formatTimestamp = (date: Date) => {
@@ -247,8 +291,8 @@ const Chat = () => {
               type="button"
               onClick={() => setSelectedLanguage(lang.id)}
               className={`px-4 py-2 text-sm font-medium border ${
-                selectedLanguage === lang.id 
-                  ? 'bg-morocco-blue text-white border-morocco-blue' 
+                selectedLanguage === lang.id
+                  ? 'bg-morocco-blue text-white border-morocco-blue'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700'
               } ${lang.id === 'en' ? 'rounded-l-lg' : ''} ${lang.id === 'darija' ? 'rounded-r-lg' : ''}`}
             >
@@ -294,6 +338,7 @@ const Chat = () => {
               </div>
             </div>
           ))}
+          
           {isLoading && (
             <div className="flex justify-start mb-4">
               <div className="max-w-[80%] rounded-lg p-3 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
@@ -311,6 +356,7 @@ const Chat = () => {
               </div>
             </div>
           )}
+          
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -352,7 +398,7 @@ const Chat = () => {
       
       <div className="mt-4 text-xs text-center text-gray-500 dark:text-gray-400">
         <p>
-          Powered by Groq LLaMA3 and Hugging Face Whisper. Your API keys are required for full functionality.
+          Powered by Groq LLaMA3 and Replicate Whisper. Your API keys are required for full functionality.
         </p>
       </div>
     </div>
